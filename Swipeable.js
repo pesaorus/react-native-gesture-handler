@@ -20,12 +20,12 @@ if (!Math.sign) {
 
 export type PropType = {
   children: any,
-  friction: number,
+  friction?: number,
   leftThreshold?: number,
   rightThreshold?: number,
   overshootLeft?: boolean,
   overshootRight?: boolean,
-  overshootFriction: number,
+  overshootFriction?: number,
   onSwipeableLeftOpen?: Function,
   onSwipeableRightOpen?: Function,
   onSwipeableOpen?: Function,
@@ -42,7 +42,7 @@ export type PropType = {
     progressAnimatedValue: any,
     dragAnimatedValue: any
   ) => any,
-  useNativeAnimations: boolean,
+  useNativeAnimations?: boolean,
   animationOptions?: Object,
   containerStyle?: Object,
   childrenContainerStyle?: Object,
@@ -57,11 +57,6 @@ type StateType = {
 };
 
 export default class Swipeable extends Component<PropType, StateType> {
-  static defaultProps = {
-    friction: 1,
-    overshootFriction: 1,
-    useNativeAnimations: true,
-  };
   _onGestureEvent: ?Animated.Event;
   _transX: ?Animated.Interpolation;
   _showLeftAction: ?Animated.Interpolation | ?Animated.Value;
@@ -71,6 +66,7 @@ export default class Swipeable extends Component<PropType, StateType> {
 
   constructor(props: PropType) {
     super(props);
+    const { useNativeAnimations = true } = props;
     const dragX = new Animated.Value(0);
     this.state = {
       dragX,
@@ -84,16 +80,21 @@ export default class Swipeable extends Component<PropType, StateType> {
 
     this._onGestureEvent = Animated.event(
       [{ nativeEvent: { translationX: dragX } }],
-      { useNativeDriver: props.useNativeAnimations }
+      { useNativeDriver: useNativeAnimations }
     );
   }
 
   componentWillUpdate(props: PropType, state: StateType) {
+    const { friction = 1, overshootFriction = 1 } = this.props;
+    const {
+      friction: newFriction = 1,
+      overshootFriction: newOvershootFriction = 1,
+    } = props;
     if (
-      this.props.friction !== props.friction ||
+      friction !== newFriction ||
+      overshootFriction !== newOvershootFriction ||
       this.props.overshootLeft !== props.overshootLeft ||
       this.props.overshootRight !== props.overshootRight ||
-      this.props.overshootFriction !== props.overshootFriction ||
       this.state.leftWidth !== state.leftWidth ||
       this.state.rightOffset !== state.rightOffset ||
       this.state.rowWidth !== state.rowWidth
@@ -103,7 +104,7 @@ export default class Swipeable extends Component<PropType, StateType> {
   }
 
   _updateAnimatedEvent = (props: PropType, state: StateType) => {
-    const { friction, overshootFriction, useNativeAnimations } = props;
+    const { friction = 1, overshootFriction = 1 } = props;
     const { dragX, rowTranslation, leftWidth = 0, rowWidth = 0 } = state;
     const { rightOffset = rowWidth } = state;
     const rightWidth = Math.max(0, rowWidth - rightOffset);
@@ -178,7 +179,7 @@ export default class Swipeable extends Component<PropType, StateType> {
     const { rightOffset = rowWidth } = this.state;
     const rightWidth = rowWidth - rightOffset;
     const {
-      friction,
+      friction = 1,
       leftThreshold = leftWidth / 2,
       rightThreshold = rightWidth / 2,
     } = this.props;
@@ -209,6 +210,18 @@ export default class Swipeable extends Component<PropType, StateType> {
   };
 
   _animateRow = (fromValue, toValue, velocityX) => {
+    const {
+      useNativeAnimations = true,
+      animationOptions,
+      onSwipeableLeftWillOpen,
+      onSwipeableRightWillOpen,
+      onSwipeableLeftOpen,
+      onSwipeableRightOpen,
+      onSwipeableClose,
+      onSwipeableOpen,
+      onSwipeableWillClose,
+      onSwipeableWillOpen,
+    } = this.props;
     const { dragX, rowTranslation } = this.state;
     dragX.setValue(0);
     rowTranslation.setValue(fromValue);
@@ -220,33 +233,33 @@ export default class Swipeable extends Component<PropType, StateType> {
       velocity: velocityX,
       bounciness: 0,
       toValue,
-      useNativeDriver: this.props.useNativeAnimations,
-      ...this.props.animationOptions,
+      useNativeDriver: useNativeAnimations,
+      ...animationOptions,
     }).start(({ finished }) => {
       if (finished) {
-        if (toValue > 0 && this.props.onSwipeableLeftOpen) {
-          this.props.onSwipeableLeftOpen();
-        } else if (toValue < 0 && this.props.onSwipeableRightOpen) {
-          this.props.onSwipeableRightOpen();
+        if (toValue > 0 && onSwipeableLeftOpen) {
+          onSwipeableLeftOpen();
+        } else if (toValue < 0 && onSwipeableRightOpen) {
+          onSwipeableRightOpen();
         }
 
         if (toValue === 0) {
-          this.props.onSwipeableClose && this.props.onSwipeableClose();
+          onSwipeableClose && onSwipeableClose();
         } else {
-          this.props.onSwipeableOpen && this.props.onSwipeableOpen();
+          onSwipeableOpen && onSwipeableOpen();
         }
       }
     });
-    if (toValue > 0 && this.props.onSwipeableLeftWillOpen) {
-      this.props.onSwipeableLeftWillOpen();
-    } else if (toValue < 0 && this.props.onSwipeableRightWillOpen) {
-      this.props.onSwipeableRightWillOpen();
+    if (toValue > 0 && onSwipeableLeftWillOpen) {
+      onSwipeableLeftWillOpen();
+    } else if (toValue < 0 && onSwipeableRightWillOpen) {
+      onSwipeableRightWillOpen();
     }
 
     if (toValue === 0) {
-      this.props.onSwipeableWillClose && this.props.onSwipeableWillClose();
+      onSwipeableWillClose && onSwipeableWillClose();
     } else {
-      this.props.onSwipeableWillOpen && this.props.onSwipeableWillOpen();
+      onSwipeableWillOpen && onSwipeableWillOpen();
     }
   };
 
@@ -322,7 +335,9 @@ export default class Swipeable extends Component<PropType, StateType> {
         minDeltaX={10}
         onGestureEvent={this._onGestureEvent}
         onHandlerStateChange={this._onHandlerStateChange}>
-        <Animated.View onLayout={this._onRowLayout} style={[styles.container, this.props.containerStyle]}>
+        <Animated.View
+          onLayout={this._onRowLayout}
+          style={[styles.container, this.props.containerStyle]}>
           {left}
           {right}
           <TapGestureHandler
@@ -334,7 +349,7 @@ export default class Swipeable extends Component<PropType, StateType> {
                 {
                   transform: [{ translateX: this._transX }],
                 },
-                this.props.childrenContainerStyle
+                this.props.childrenContainerStyle,
               ]}>
               {children}
             </Animated.View>
